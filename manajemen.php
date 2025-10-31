@@ -7,16 +7,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'manager') {
     header("Location: login.php");
     exit;
 }
+
+// Set Judul Halaman
+$page_title = 'Manajemen Data';
+
+// Panggil Header
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen - LacakPro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen">
+
+<div class="min-h-screen">
     <header class="bg-white shadow-md w-full">
         <div class="container mx-auto px-6 py-4 flex items-center justify-between">
             <h1 class="text-2xl font-bold text-blue-600">Manajemen Data</h1>
@@ -87,122 +86,126 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'manager') {
             </div>
         </div>
     </main>
+</div>
 
-    <script>
-        // --- SCRIPT UNTUK HALAMAN MANAJEMEN ---
+<script>
+    // --- SCRIPT UNTUK HALAMAN MANAJEMEN ---
 
-        const daftarSupirEl = document.getElementById('daftarSupir');
-        const daftarKendaraanEl = document.getElementById('daftarKendaraan');
-        const selectDriverEl = document.getElementById('driver_id');
-        const formTambahSupir = document.getElementById('formTambahSupir');
-        const formTambahKendaraan = document.getElementById('formTambahKendaraan');
-        const statusSupirEl = document.getElementById('statusSupir');
-        const statusKendaraanEl = document.getElementById('statusKendaraan');
+    const daftarSupirEl = document.getElementById('daftarSupir');
+    const daftarKendaraanEl = document.getElementById('daftarKendaraan');
+    const selectDriverEl = document.getElementById('driver_id');
+    const formTambahSupir = document.getElementById('formTambahSupir');
+    const formTambahKendaraan = document.getElementById('formTambahKendaraan');
+    const statusSupirEl = document.getElementById('statusSupir');
+    const statusKendaraanEl = document.getElementById('statusKendaraan');
 
-        // Fungsi untuk memuat semua data (supir & kendaraan) saat halaman dibuka
-        async function loadData() {
-            try {
-                const response = await fetch('api/get_data_manajemen.php');
-                const result = await response.json();
+    // Fungsi untuk memuat semua data (supir & kendaraan) saat halaman dibuka
+    async function loadData() {
+        try {
+            const response = await fetch('api/get_data_manajemen.php');
+            const result = await response.json();
 
-                if (result.status !== 'success') throw new Error(result.message);
+            if (result.status !== 'success') throw new Error(result.message);
 
-                // 1. Isi Daftar Supir di Kolom 1
-                daftarSupirEl.innerHTML = '';
-                selectDriverEl.innerHTML = '<option value="">Pilih Supir</option>'; // Reset dropdown
+            // 1. Isi Daftar Supir di Kolom 1
+            daftarSupirEl.innerHTML = '';
+            selectDriverEl.innerHTML = '<option value="">Pilih Supir</option>'; // Reset dropdown
+            
+            result.data.supir.forEach(supir => {
+                // Tampilkan di daftar
+                const div = document.createElement('div');
+                div.className = 'p-2 border rounded';
+                div.innerHTML = `<strong>${supir.nama_lengkap}</strong> (${supir.username})`;
+                daftarSupirEl.appendChild(div);
                 
-                result.data.supir.forEach(supir => {
-                    // Tampilkan di daftar
-                    const div = document.createElement('div');
-                    div.className = 'p-2 border rounded';
-                    div.innerHTML = `<strong>${supir.nama_lengkap}</strong> (${supir.username})`;
-                    daftarSupirEl.appendChild(div);
-                    
-                    // Masukkan ke pilihan <select> di form kendaraan
-                    const option = document.createElement('option');
-                    option.value = supir.id;
-                    option.textContent = `${supir.nama_lengkap} (${supir.username})`;
-                    selectDriverEl.appendChild(option);
-                });
+                // Masukkan ke pilihan <select> di form kendaraan
+                const option = document.createElement('option');
+                option.value = supir.id;
+                option.textContent = `${supir.nama_lengkap} (${supir.username})`;
+                selectDriverEl.appendChild(option);
+            });
 
-                // 2. Isi Daftar Kendaraan di Kolom 2
-                daftarKendaraanEl.innerHTML = '';
-                result.data.kendaraan.forEach(v => {
-                    const div = document.createElement('div');
-                    div.className = 'p-2 border rounded';
-                    div.innerHTML = `<strong>${v.nama_kendaraan}</strong> (${v.nomor_polisi})<br><span class="text-sm text-gray-500">Supir: ${v.nama_lengkap}</span>`;
-                    daftarKendaraanEl.appendChild(div);
-                });
+            // 2. Isi Daftar Kendaraan di Kolom 2
+            daftarKendaraanEl.innerHTML = '';
+            result.data.kendaraan.forEach(v => {
+                const div = document.createElement('div');
+                div.className = 'p-2 border rounded';
+                div.innerHTML = `<strong>${v.nama_kendaraan}</strong> (${v.nomor_polisi})<br><span class="text-sm text-gray-500">Supir: ${v.nama_lengkap}</span>`;
+                daftarKendaraanEl.appendChild(div);
+            });
 
-            } catch (error) {
-                daftarSupirEl.innerHTML = `<p class="text-red-500">${error.message}</p>`;
-                daftarKendaraanEl.innerHTML = `<p class="text-red-500">${error.message}</p>`;
-            }
+        } catch (error) {
+            daftarSupirEl.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+            daftarKendaraanEl.innerHTML = `<p class="text-red-500">${error.message}</p>`;
         }
+    }
 
-        // Event listener untuk form Tambah Supir
-        formTambahSupir.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            statusSupirEl.textContent = 'Menyimpan...';
+    // Event listener untuk form Tambah Supir
+    formTambahSupir.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        statusSupirEl.textContent = 'Menyimpan...';
 
-            const formData = new FormData(formTambahSupir);
-            const data = Object.fromEntries(formData.entries());
+        const formData = new FormData(formTambahSupir);
+        const data = Object.fromEntries(formData.entries());
 
-            try {
-                const response = await fetch('api/tambah_supir.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await response.json();
+        try {
+            const response = await fetch('api/tambah_supir.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
 
-                if (result.status === 'success') {
-                    statusSupirEl.textContent = 'Sukses! Supir ditambahkan.';
-                    statusSupirEl.className = 'text-sm mt-2 text-green-600';
-                    formTambahSupir.reset(); // Kosongkan form
-                    loadData(); // Muat ulang semua data
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                statusSupirEl.textContent = `Error: ${error.message}`;
-                statusSupirEl.className = 'text-sm mt-2 text-red-600';
+            if (result.status === 'success') {
+                statusSupirEl.textContent = 'Sukses! Supir ditambahkan.';
+                statusSupirEl.className = 'text-sm mt-2 text-green-600';
+                formTambahSupir.reset(); // Kosongkan form
+                loadData(); // Muat ulang semua data
+            } else {
+                throw new Error(result.message);
             }
-        });
-        
-        // Event listener untuk form Tambah Kendaraan
-        formTambahKendaraan.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            statusKendaraanEl.textContent = 'Menyimpan...';
+        } catch (error) {
+            statusSupirEl.textContent = `Error: ${error.message}`;
+            statusSupirEl.className = 'text-sm mt-2 text-red-600';
+        }
+    });
+    
+    // Event listener untuk form Tambah Kendaraan
+    formTambahKendaraan.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        statusKendaraanEl.textContent = 'Menyimpan...';
 
-            const formData = new FormData(formTambahKendaraan);
-            const data = Object.fromEntries(formData.entries());
+        const formData = new FormData(formTambahKendaraan);
+        const data = Object.fromEntries(formData.entries());
 
-            try {
-                const response = await fetch('api/tambah_kendaraan.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await response.json();
+        try {
+            const response = await fetch('api/tambah_kendaraan.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
 
-                if (result.status === 'success') {
-                    statusKendaraanEl.textContent = 'Sukses! Kendaraan ditambahkan.';
-                    statusKendaraanEl.className = 'text-sm mt-2 text-green-600';
-                    formTambahKendaraan.reset(); // Kosongkan form
-                    loadData(); // Muat ulang semua data
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                statusKendaraanEl.textContent = `Error: ${error.message}`;
-                statusKendaraanEl.className = 'text-sm mt-2 text-red-600';
+            if (result.status === 'success') {
+                statusKendaraanEl.textContent = 'Sukses! Kendaraan ditambahkan.';
+                statusKendaraanEl.className = 'text-sm mt-2 text-green-600';
+                formTambahKendaraan.reset(); // Kosongkan form
+                loadData(); // Muat ulang semua data
+            } else {
+                throw new Error(result.message);
             }
-        });
+        } catch (error) {
+            statusKendaraanEl.textContent = `Error: ${error.message}`;
+            statusKendaraanEl.className = 'text-sm mt-2 text-red-600';
+        }
+    });
 
 
-        // Panggil fungsi loadData() saat halaman pertama kali dibuka
-        document.addEventListener('DOMContentLoaded', loadData);
-    </script>
-</body>
-</html>
+    // Panggil fungsi loadData() saat halaman pertama kali dibuka
+    document.addEventListener('DOMContentLoaded', loadData);
+</script>
+
+<?php
+// Panggil Footer
+include 'includes/footer.php'; 
+?>

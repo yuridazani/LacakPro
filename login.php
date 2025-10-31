@@ -1,7 +1,8 @@
 <?php
 // login.php
-// Jika sudah login, lempar ke dashboard
 include 'includes/db_config.php';
+
+// Jika sudah login, lempar ke dashboard
 if (isset($_SESSION['user_id'])) {
     if ($_SESSION['role'] == 'manager') {
         header("Location: dashboard_manager.php");
@@ -10,16 +11,15 @@ if (isset($_SESSION['user_id'])) {
     }
     exit;
 }
+
+// Set Judul Halaman
+$page_title = 'Login';
+
+// Panggil Header
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - LacakPro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
+
+<div class="flex items-center justify-center h-screen">
     <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
         <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">LacakPro</h1>
         
@@ -30,16 +30,11 @@ if (isset($_SESSION['user_id'])) {
         <?php endif; ?>
 
         <form action="auth.php" method="POST">
-            <div class="mb-4">
-                <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                <input type="text" id="username" name="username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
-            </div>
-            <div class="mb-6">
-                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                <input type="password" id="password" name="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
-            </div>
-            <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">Login</button>
-        </form>
+            </form>
     </div>
-</body>
-</html>
+</div>
+
+<?php
+// Panggil Footer
+include 'includes/footer.php'; 
+?>

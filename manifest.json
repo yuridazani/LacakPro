@@ -2,18 +2,19 @@
   "name": "Lacak Pro",
   "short_name": "LacakPro",
   "description": "Pelacakan Kendaraan",
-  "start_url": "/",
+  "start_url": "/LacakPro/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#333333",
+  "theme_color": "#4A90E2",
+  "scope": "/LacakPro/",
   "icons": [
     {
-      "src": "/images/icons/icon-192x192.png",
+      "src": "/LacakPro/images/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/images/icons/icon-512x512.png",
+      "src": "/LacakPro/images/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
