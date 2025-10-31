@@ -10,14 +10,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'manager') {
 }
 
 try {
-    // 1. Ambil daftar supir
+    // 1. Ambil daftar supir (tidak berubah)
     $stmt_supir = $conn->prepare("SELECT id, username, nama_lengkap FROM users WHERE role = 'supir'");
     $stmt_supir->execute();
     $supir = $stmt_supir->fetchAll(PDO::FETCH_ASSOC);
     
-    // 2. Ambil daftar kendaraan (di-JOIN dengan nama supir)
+    // 2. Ambil daftar kendaraan (DI-UPDATE untuk menyertakan ID)
     $stmt_kendaraan = $conn->prepare("
-        SELECT v.nama_kendaraan, v.nomor_polisi, u.nama_lengkap 
+        SELECT 
+            v.id AS vehicle_id, 
+            v.nama_kendaraan, 
+            v.nomor_polisi, 
+            u.id AS driver_id,
+            u.nama_lengkap 
         FROM vehicles v
         JOIN users u ON v.driver_id = u.id
         ORDER BY v.id DESC

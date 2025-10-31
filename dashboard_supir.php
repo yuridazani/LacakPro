@@ -8,14 +8,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'supir') {
     exit;
 }
 
-// Ambil data kendaraan supir
-$stmt = $conn->prepare("SELECT id, nama_kendaraan, nomor_polisi FROM vehicles WHERE driver_id = :driver_id");
+// --- LOGIKA BARU: AMBIL TUGAS AKTIF ---
+// Kita cari tugas hari ini yang statusnya 'pending' (belum dimulai) atau 'active' (sedang berjalan)
+$stmt = $conn->prepare("SELECT * FROM tasks 
+                        WHERE driver_id = :driver_id 
+                        AND status IN ('pending', 'active')
+                        ORDER BY waktu_dijadwalkan ASC 
+                        LIMIT 1");
 $stmt->bindParam(':driver_id', $_SESSION['user_id']);
 $stmt->execute();
-$vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
+$task = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Simpan vehicle_id di session agar mudah diakses API
-$_SESSION['vehicle_id'] = $vehicle ? $vehicle['id'] : null;
+// Simpan task_id di session agar bisa dipakai api/update_location.php
+$_SESSION['current_task_id'] = $task ? $task['id'] : null;
 
 // Set Judul Halaman
 $page_title = 'Dashboard Supir';
@@ -28,19 +33,38 @@ include 'includes/header.php';
     <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md text-center">
         <h1 class="text-xl font-bold">Halo, <?php echo htmlspecialchars($_SESSION['username']); ?>!</h1>
         
-        <?php if ($vehicle): ?>
-            <p class="text-gray-700 mt-2">Anda mengemudikan:</p>
-            <p class="text-lg font-semibold text-blue-600"><?php echo htmlspecialchars($vehicle['nama_kendaraan']); ?> (<?php echo htmlspecialchars($vehicle['nomor_polisi']); ?>)</p>
+        <?php if ($task): ?>
+            <div class="text-left my-6 p-4 bg-gray-50 rounded-lg border">
+                <h2 class="text-lg font-semibold text-blue-600 mb-3">Tugas Anda Berikutnya:</h2>
+                
+                <div class="mb-2">
+                    <span class="text-sm text-gray-500">Dari:</span>
+                    <p class="text-md font-medium"><?php echo htmlspecialchars($task['alamat_awal']); ?></p>
+                </div>
+                <div class="mb-2">
+                    <span class="text-sm text-gray-500">Tujuan:</span>
+                    <p class="text-md font-medium"><?php echo htmlspecialchars($task['alamat_tujuan']); ?></p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">Jadwal:</span>
+                    <p class="text-md font-medium"><?php echo date('d M Y, H:i', strtotime($task['waktu_dijadwalkan'])); ?></p>
+                </div>
+            </div>
 
-            <button id="startButton" class="mt-6 w-full bg-green-500 text-white py-3 px-4 rounded-md text-lg font-semibold">
-                Mulai Pelacakan
+            <button id="startJobButton" class="mt-4 w-full bg-green-500 text-white py-3 px-4 rounded-md text-lg font-semibold"
+                <?php echo ($task['status'] == 'active') ? 'style="display:none;"' : ''; ?>>
+                Mulai Perjalanan
             </button>
-            <button id="stopButton" class="mt-2 w-full bg-red-500 text-white py-3 px-4 rounded-md text-lg font-semibold" style="display:none;">
-                Hentikan Pelacakan
+            <button id="completeJobButton" class="mt-2 w-full bg-red-500 text-white py-3 px-4 rounded-md text-lg font-semibold"
+                <?php echo ($task['status'] == 'pending') ? 'style="display:none;"' : ''; ?>>
+                Selesaikan Perjalanan
             </button>
-            <p id="status" class="mt-4 text-sm text-gray-500">Status: Tidak Aktif</p>
+            <p id="status" class="mt-4 text-sm text-gray-500">
+                Status: <?php echo ($task['status'] == 'active') ? 'Perjalanan sedang berlangsung...' : 'Belum dimulai'; ?>
+            </p>
+
         <?php else: ?>
-            <p class="text-red-500 mt-4">Anda tidak terhubung dengan kendaraan manapun. Hubungi manajer.</p>
+            <p class="text-green-600 mt-4 text-lg">Tidak ada tugas aktif. Selamat beristirahat!</p>
         <?php endif; ?>
 
         <a href="logout.php" class="text-blue-500 text-sm mt-6 inline-block">Logout</a>
@@ -48,22 +72,30 @@ include 'includes/header.php';
 </div>
 
 <script>
-    const startButton = document.getElementById('startButton');
-    const stopButton = document.getElementById('stopButton');
+    // Ambil elemen tombol baru
+    const startJobButton = document.getElementById('startJobButton');
+    const completeJobButton = document.getElementById('completeJobButton');
     const statusEl = document.getElementById('status');
-    let watchId = null; // Menyimpan ID dari pelacak
+    let watchId = null; // Tetap dipakai untuk menyimpan ID pelacak
 
-    // 1. Fungsi untuk MENGIRIM lokasi ke server (PHP)
+    // Ambil task_id dari PHP
+    const currentTaskId = <?php echo $_SESSION['current_task_id'] ?? 'null'; ?>;
+
+    // --- LOGIKA KIRIM LOKASI (MASIH SAMA) ---
     async function sendLocation(position) {
         const { latitude, longitude } = position.coords;
         statusEl.textContent = `Status: Mengirim... (Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)})`;
 
         try {
-            // Kita gunakan method POST untuk mengirim data
+            // Kita modifikasi API-nya nanti agar bisa menerima task_id
             const response = await fetch('api/update_location.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: latitude, lng: longitude })
+                body: JSON.stringify({ 
+                    lat: latitude, 
+                    lng: longitude,
+                    task_id: currentTaskId // KIRIM TASK ID
+                })
             });
             const result = await response.json();
             if(result.status === 'success') {
@@ -73,49 +105,85 @@ include 'includes/header.php';
             }
         } catch (error) {
             statusEl.textContent = `Status: Error. Periksa koneksi internet.`;
-            console.error('Error sending location:', error);
         }
     }
 
-    // 2. Fungsi saat tombol START diklik
-    startButton.addEventListener('click', () => {
+    // --- FUNGSI BARU UNTUK MEMULAI PELACAKAN OTOMATIS ---
+    function startGeolocationTracking() {
         if (!navigator.geolocation) {
             alert('Browser Anda tidak mendukung Geolocation.');
             return;
         }
-
-        // Ini adalah kunci pelacakan otomatis: watchPosition
-        // Akan memanggil sendLocation SETIAP KALI HP mendeteksi pergerakan
         watchId = navigator.geolocation.watchPosition(
-            sendLocation, // Sukses: panggil fungsi sendLocation
-            (error) => { // Gagal
-                statusEl.textContent = `Status: Error GPS (${error.message})`;
-            },
-            { // Opsi
-                enableHighAccuracy: true, // GPS Akurat
-                timeout: 10000,           // Waktu tunggu 10 detik
-                maximumAge: 0             // Jangan pakai cache lokasi
-            }
+            sendLocation,
+            (error) => { statusEl.textContent = `Status: Error GPS (${error.message})`; },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
-
-        // Ubah tampilan tombol
-        startButton.style.display = 'none';
-        stopButton.style.display = 'block';
         statusEl.textContent = 'Status: Pelacakan AKTIF. Mencari sinyal GPS...';
-    });
+    }
 
-    // 3. Fungsi saat tombol STOP diklik
-    stopButton.addEventListener('click', () => {
-        if (watchId) {
-            navigator.geolocation.clearWatch(watchId); // Hentikan pelacakan
-            watchId = null;
-        }
-        
-        // Ubah tampilan tombol
-        startButton.style.display = 'block';
-        stopButton.style.display = 'none';
-        statusEl.textContent = 'Status: Tidak Aktif';
-    });
+    // --- LOGIKA TOMBOL BARU ---
+
+    // 1. Saat tombol "Mulai Perjalanan" diklik
+    if (startJobButton) {
+        startJobButton.addEventListener('click', async () => {
+            if (!confirm('Anda yakin ingin memulai perjalanan ini?')) return;
+
+            // Panggil API baru untuk update status TUGAS
+            // (Kamu harus buat file api/start_task.php ini)
+            try {
+                const response = await fetch(`api/start_task.php?task_id=${currentTaskId}`);
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+
+                // Jika sukses, baru nyalakan pelacakan
+                startGeolocationTracking();
+
+                // Ubah tampilan tombol
+                startJobButton.style.display = 'none';
+                completeJobButton.style.display = 'block';
+
+            } catch (error) {
+                alert(`Gagal memulai tugas: ${error.message}`);
+            }
+        });
+    }
+
+    // 2. Saat tombol "Selesaikan Perjalanan" diklik
+    if (completeJobButton) {
+        completeJobButton.addEventListener('click', async () => {
+            if (!confirm('Anda yakin sudah sampai tujuan dan ingin menyelesaikan tugas?')) return;
+
+            // Hentikan pelacakan
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // Panggil API baru untuk update status TUGAS
+            // (Kamu harus buat file api/complete_task.php ini)
+            try {
+                const response = await fetch(`api/complete_task.php?task_id=${currentTaskId}`);
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error(result.message);
+
+                // Sukses! Reload halaman untuk dapat tugas baru (jika ada)
+                alert('Tugas selesai!');
+                window.location.reload();
+
+            } catch (error) {
+                alert(`Gagal menyelesaikan tugas: ${error.message}`);
+            }
+        });
+    }
+
+    // 3. Cek jika tugas sudah 'active' saat halaman di-load
+    // (Misal supir refresh halaman di tengah perjalanan)
+    <?php if ($task && $task['status'] == 'active'): ?>
+        console.log('Melanjutkan pelacakan untuk tugas yang sedang berjalan...');
+        startGeolocationTracking();
+    <?php endif; ?>
+
 </script>
 
 <?php
